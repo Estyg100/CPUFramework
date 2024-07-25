@@ -28,14 +28,22 @@ namespace CPUFramework
 
         public static DataTable GetDataTable(SqlCommand cmd)
         {
-            Debug.Print("------" + Environment.NewLine + cmd.CommandText);
             DataTable dt = new();
             using (SqlConnection conn = new SqlConnection(SQLUtility.ConnectionString))
             {
                 cmd.Connection = conn;
                 conn.Open();
-                SqlDataReader dr = cmd.ExecuteReader();
-                dt.Load(dr);
+                Debug.Print(GetSQL(cmd));
+                try
+                {
+                    SqlDataReader dr = cmd.ExecuteReader();
+                    dt.Load(dr);
+                }
+                catch (SqlException ex)
+                {
+                    string message = ParseConstraintMessage(ex.Message);
+                    throw new Exception(message);
+                }
             }
             SetAllColumnsAllowNull(dt);
             return dt;
@@ -73,6 +81,45 @@ namespace CPUFramework
             }
         }
 
+        public static string GetSQL(SqlCommand cmd)
+        {
+            string val = "";
+#if DEBUG
+            StringBuilder sb = new();
+            if (cmd.Connection != null)
+            {
+                sb.AppendLine($"--{cmd.Connection.DataSource}");
+                sb.AppendLine($"use {cmd.Connection.Database}");
+                sb.AppendLine("go");
+            }
+            if (cmd.CommandType == CommandType.StoredProcedure)
+            {
+                sb.AppendLine($"exec {cmd.CommandText}");
+                int paramcount = cmd.Parameters.Count - 1;
+                int paramnum = 0;
+                string comma = ",";
+                foreach (SqlParameter p in cmd.Parameters)
+                {
+                    if (p.Direction != ParameterDirection.ReturnValue)
+                    {
+                        if (paramnum == paramcount)
+                        {
+                            comma = "";
+                        }
+                        sb.AppendLine($"{p.ParameterName} = {(p.Value == null ? "null" : p.Value.ToString())}{comma}");
+                    }
+                    paramnum++;
+                }
+            }
+            else
+            {
+                sb.AppendLine(cmd.CommandText);
+            }
+            val = sb.ToString();
+#endif
+            return val;
+        }
+
         public static void DEbugPrintDataTable(DataTable dt)
         {
             foreach (DataRow r in dt.Rows)
@@ -83,5 +130,43 @@ namespace CPUFramework
                 }
             }
         }
+
+        private static string ParseConstraintMessage(string message)
+        {
+            string origmsg = message;
+            string prefix = "ck_";
+            string msgend = "";
+            if (message.Contains(prefix) == false)
+            {
+                if (message.Contains("u_"))
+                {
+                    prefix = "u_";
+                    msgend = " must be unique.";
+                }
+                else if (message.Contains("f_"))
+                {
+                    prefix = "f_";
+                }
+            }
+            if (message.Contains(prefix))
+            {
+                message = message.Replace("\"", "'");
+                int pos = message.IndexOf(prefix) + 3;
+                message = message.Substring(pos);
+                pos = message.IndexOf("\'");
+                if (pos == -1)
+                {
+                    message = origmsg;
+                }
+                else
+                {
+                    message = message.Substring(0, pos);
+                    message = message.Replace("_", " ");
+                    message = message + msgend;
+                }
+            }
+            return message;
+        }
+
     }
 }
