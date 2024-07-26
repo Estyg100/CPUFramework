@@ -147,7 +147,7 @@ namespace CPUFramework
             if (message.Contains(prefix))
             {
                 message = message.Replace("\"", "'");
-                int pos = message.IndexOf(prefix) + 3;
+                int pos = message.IndexOf(prefix) + 2;
                 message = message.Substring(pos);
                 pos = message.IndexOf("\'");
                 if (pos == -1)
