@@ -48,6 +48,10 @@ namespace CPUFramework
                     string message = ParseConstraintMessage(ex.Message);
                     throw new Exception(message);
                 }
+                catch (InvalidCastException ex)
+                {
+                    throw new Exception(cmd.CommandText + ": " + ex.Message, ex);
+                }
             }
             SetAllColumnsAllowNull(dt);
             return dt;
@@ -66,6 +70,18 @@ namespace CPUFramework
         public static void ExecuteSQL(string sqlstatement)
         {
             GetDataTable(sqlstatement);
+        }
+
+        public static void SetParamValue(SqlCommand cmd, string paramname, object value)
+        {
+            try
+            {
+                cmd.Parameters[paramname].Value = value;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(cmd.CommandText + ": " + ex.Message, ex);
+            }
         }
 
         public static int GetFirstColumnFirstRowValue(string sql)
@@ -129,7 +145,7 @@ namespace CPUFramework
             return val;
         }
 
-        public static void DEbugPrintDataTable(DataTable dt)
+        public static void DebugPrintDataTable(DataTable dt)
         {
             foreach (DataRow r in dt.Rows)
             {
@@ -160,7 +176,7 @@ namespace CPUFramework
             if (message.Contains(prefix))
             {
                 message = message.Replace("\"", "'");
-                int pos = message.IndexOf(prefix) + 2;
+                int pos = message.IndexOf(prefix) + prefix.Length;
                 message = message.Substring(pos);
                 pos = message.IndexOf("\'");
                 if (pos == -1)
@@ -172,6 +188,14 @@ namespace CPUFramework
                     message = message.Substring(0, pos);
                     message = message.Replace("_", " ");
                     message = message + msgend;
+                    if (prefix == "f_")
+                    {
+                        var words = message.Split(" ");
+                        if (words.Length > 1)
+                        {
+                            message = $"Cannot delete {words[0]} because a related {words[1]} record";
+                        }
+                    }
                 }
             }
             return message;
