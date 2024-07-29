@@ -193,7 +193,7 @@ namespace CPUFramework
                         var words = message.Split(" ");
                         if (words.Length > 1)
                         {
-                            message = $"Cannot delete {words[0]} because a related {words[1]} record";
+                            message = $"Cannot delete {words[0]} because it has a related {words[1]} record";
                         }
                     }
                 }
