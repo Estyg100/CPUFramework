@@ -50,6 +50,7 @@ namespace CPUFramework
                     }
                 }
             }
+            row.Table.AcceptChanges();
         }
 
         private static DataTable DoExecuteSQL(SqlCommand cmd, bool loadtable)
@@ -197,6 +198,16 @@ namespace CPUFramework
             return value;
         }
 
+        public static bool TableHasChanges(DataTable dt)
+        {
+            bool b = false;
+            if (dt.GetChanges() != null)
+            {
+                b = true;
+            }
+            return b;
+        }
+
         public static string GetSQL(SqlCommand cmd)
         {
             string val = "";
@@ -252,6 +263,7 @@ namespace CPUFramework
             string origmsg = message;
             string prefix = "ck_";
             string msgend = "";
+            string notnullprefix = "Cannot insert the value NULL into column '";
             if (message.Contains(prefix) == false)
             {
                 if (message.Contains("u_"))
@@ -263,13 +275,18 @@ namespace CPUFramework
                 {
                     prefix = "f_";
                 }
+                else if (message.Contains(notnullprefix))
+                {
+                    prefix = notnullprefix;
+                    msgend = " cannot be blank.";
+                }
             }
             if (message.Contains(prefix))
             {
                 message = message.Replace("\"", "'");
                 int pos = message.IndexOf(prefix) + prefix.Length;
                 message = message.Substring(pos);
-                pos = message.IndexOf("\'");
+                pos = message.IndexOf("'");
                 if (pos == -1)
                 {
                     message = origmsg;
