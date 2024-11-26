@@ -55,11 +55,24 @@ namespace CPUFramework
         {
             foreach (DataColumn col in dr.Table.Columns)
             {
-                string colname = col.ColumnName.ToLower();
-                PropertyInfo? prop = _properties.FirstOrDefault(p => p.Name.ToLower() == colname && p.CanWrite == true);
-                if (prop != null)
+                SetProp(col.ColumnName, dr[col.ColumnName]);
+            }
+        }
+
+        public void Delete(int id)
+        {
+            this.Delete(id);
+        }
+
+        public void Delete()
+        {
+            PropertyInfo? prop = GetProp(_primarykeyname, true, false);
+            if (prop != null)
+            {
+                object? id = prop.GetValue(this);
+                if (id != null)
                 {
-                    prop.SetValue(this, dr[colname]);
+                    this.Delete((int)id);
                 }
             }
         }
@@ -69,10 +82,14 @@ namespace CPUFramework
             SqlCommand cmd = SQLUtility.GetSqlCommand(_updatesproc);
             foreach (SqlParameter param in cmd.Parameters)
             {
-                string colname = param.ParameterName.ToLower().Substring(1);
-                PropertyInfo? prop = _properties.FirstOrDefault(p => p.Name.ToLower() == colname && p.CanRead == true);
+                var prop = GetProp(param.ParameterName, true, false);
                 if (prop != null)
                 {
+                    object? val = prop.GetValue(this);
+                    if (val == null)
+                    {
+                        val = DBNull.Value;
+                    }
                     param.Value = prop.GetValue(this);
                 }
             }
@@ -81,12 +98,7 @@ namespace CPUFramework
             {
                 if (param.Direction == ParameterDirection.InputOutput)
                 {
-                    string colname = param.ParameterName.ToLower().Substring(1);
-                    PropertyInfo? prop = _properties.FirstOrDefault(p => p.Name.ToLower() == colname && p.CanRead == true);
-                    if (prop != null)
-                    {
-                        prop.SetValue(this, param.Value);
-                    }
+                    SetProp(param.ParameterName, param.Value);
                 }
             }
         }
@@ -94,9 +106,7 @@ namespace CPUFramework
         public void Delete(DataTable dt)
         {
             int primarykeyvalue = (int)dt.Rows[0][_primarykeyname];
-            SqlCommand cmd = SQLUtility.GetSqlCommand(_deletesproc);
-            SQLUtility.SetParamValue(cmd, _primarykeyparamname, primarykeyvalue);
-            SQLUtility.ExecuteSQL(cmd);
+            this.Delete(primarykeyvalue);
         }
 
         public void Save(DataTable dt)
@@ -108,6 +118,34 @@ namespace CPUFramework
             DataRow r = dt.Rows[0];
             SQLUtility.SaveDataRow(r, _updatesproc);
             Debug.Print("-------------------------------");
+        }
+
+        private PropertyInfo? GetProp(string propname, bool forrread, bool forwrite)
+        {
+            propname = propname.ToLower();
+            if (propname.StartsWith("@"))
+            {
+                propname = propname.Substring(1);
+            }
+            PropertyInfo? prop = _properties.FirstOrDefault(p =>
+            p.Name.ToLower() == propname
+            && (forrread == false || p.CanRead == true)
+            && (forwrite == false || p.CanWrite == true)
+            );
+            return prop;
+        }
+
+        private void SetProp(string propname, object? value)
+        {
+            var prop = GetProp(propname, false, true);
+            if (prop != null)
+            {
+                if (value == DBNull.Value)
+                {
+                    value = null;
+                }
+                prop.SetValue(this, value);
+            }
         }
 
         protected void InvokePropertyChanged([CallerMemberName] string propertyname = "")
