@@ -10,6 +10,7 @@ namespace CPUFramework
     public class bizObject : INotifyPropertyChanged
     {
 
+        string _typename = "";
         string _tablename = "";
         string _getsproc = "";
         string _updatesproc = "";
@@ -24,7 +25,8 @@ namespace CPUFramework
         public bizObject()
         {
             Type t = this.GetType();
-            _tablename = t.Name;
+            _typename = t.Name;
+            _tablename = _typename;
             if (_tablename.ToLower().StartsWith("biz"))
             {
                 _tablename = _tablename.Substring(3);
@@ -61,12 +63,14 @@ namespace CPUFramework
 
         public void Delete(int id)
         {
-            this.Delete(id);
+            SqlCommand cmd = SQLUtility.GetSqlCommand(_deletesproc);
+            SQLUtility.SetParamValue(cmd, _primarykeyparamname, id);
+            SQLUtility.ExecuteSQL(cmd);
         }
 
         public void Delete()
         {
-            PropertyInfo? prop = GetProp(_primarykeyname, true, false);
+            PropertyInfo? prop = GetProp(_primarykeyparamname, true, false);
             if (prop != null)
             {
                 object? id = prop.GetValue(this);
@@ -83,22 +87,26 @@ namespace CPUFramework
             foreach (SqlParameter param in cmd.Parameters)
             {
                 var prop = GetProp(param.ParameterName, true, false);
-                if (prop != null)
+                if (prop != null && param.Direction != ParameterDirection.Output && param.Direction != ParameterDirection.InputOutput)
                 {
                     object? val = prop.GetValue(this);
-                    if (val == null)
-                    {
-                        val = DBNull.Value;
-                    }
-                    param.Value = prop.GetValue(this);
+                    param.Value = val ?? DBNull.Value;
+                }
+                else if (param.Direction == ParameterDirection.Output || param.Direction == ParameterDirection.InputOutput)
+                {
+                    param.Value = DBNull.Value;
                 }
             }
             SQLUtility.ExecuteSQL(cmd);
             foreach (SqlParameter param in cmd.Parameters)
             {
-                if (param.Direction == ParameterDirection.InputOutput)
+                if (param.Direction == ParameterDirection.Output || param.Direction == ParameterDirection.InputOutput)
                 {
-                    SetProp(param.ParameterName, param.Value);
+                    var prop = GetProp(param.ParameterName, false, true);
+                    if (prop != null)
+                    {
+                        SetProp(param.ParameterName, param.Value == DBNull.Value ? null : param.Value);
+                    }
                 }
             }
         }
@@ -144,7 +152,15 @@ namespace CPUFramework
                 {
                     value = null;
                 }
-                prop.SetValue(this, value);
+                try
+                {
+                    prop.SetValue(this, value);
+                }
+                catch (Exception ex)
+                {
+                    string msg = $"{_typename}.{prop.Name} is being set to {value.ToString()} which is the wrong data type. {ex.Message}";
+                    throw new CPUDevException(msg, ex);
+                }
             }
         }
 
