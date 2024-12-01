@@ -169,6 +169,10 @@ namespace CPUFramework
 
         public static void SetParamValue(SqlCommand cmd, string paramname, object value)
         {
+            if (paramname.StartsWith("@") == false)
+            {
+                paramname = "@" + paramname;
+            }
             try
             {
                 cmd.Parameters[paramname].Value = value;
