@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 
 namespace CPUFramework
 {
-    public class bizObject<T> : INotifyPropertyChanged where T:bizObject<T>, new()
+    public class bizObject<T> : INotifyPropertyChanged where T : bizObject<T>, new()
     {
 
         string _typename = "";
@@ -110,14 +110,11 @@ namespace CPUFramework
             foreach (SqlParameter param in cmd.Parameters)
             {
                 var prop = GetProp(param.ParameterName, true, false);
-                if (prop != null && param.Direction != ParameterDirection.Output && param.Direction != ParameterDirection.InputOutput)
+                if (prop != null)
                 {
                     object? val = prop.GetValue(this);
-                    param.Value = val ?? DBNull.Value;
-                }
-                else if (param.Direction == ParameterDirection.Output || param.Direction == ParameterDirection.InputOutput)
-                {
-                    param.Value = DBNull.Value;
+                    if (val == null) { val = DBNull.Value; }
+                    param.Value = val;
                 }
             }
             SQLUtility.ExecuteSQL(cmd);

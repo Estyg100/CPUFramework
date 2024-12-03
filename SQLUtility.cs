@@ -175,7 +175,10 @@ namespace CPUFramework
             }
             try
             {
-                cmd.Parameters[paramname].Value = value;
+                if (cmd.Parameters.Contains(paramname))
+                {
+                    cmd.Parameters[paramname].Value = value;
+                }
             }
             catch (Exception ex)
             {
